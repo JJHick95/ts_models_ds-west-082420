@@ -1,7 +1,19 @@
 
 # Time Series Models
 
-If we think back to our lecture on the bias-variance tradeoff, a perfect model is not possible.  There will always noise (inexplicable error). A timeseries that is completely random is called white noise, and is written mathematically as:
+## TOC
+
+- [Random Walk Model](#random_walk)
+- [Improvements on the FSM](#arma_models)
+    - [Autoregressive Model](#ar_model)
+    - [Moving Average Model](#ma_model)
+    - [ACF and PACF](#acf_pacf)
+- [auto_arima](#auto_arima)
+- [TimeSeriesSplit](#timeseriessplit)
+
+If we think back to our lecture on the bias-variance tradeoff, a perfect model is not possible.  There will always noise (inexplicable error).
+
+If we were to remove all of the patterns from our timeseries, we would be left with white noise, which is written mathematically as:
 
 $$\Large Y_t =  \epsilon_t$$
 
@@ -20,7 +32,21 @@ Let's reimport our chicago gun crime data, and prepare it in the same manner as 
 
 Train test split for a time series is a little different than what we are used to.  Because **chronological order matters**, we cannot randomly sample points in our data.  Instead, we cut off a portion of our data at the end, and reserve it as our test set.
 
+
+```python
+end_of_train_index = round(ts_weekly.shape[0]*.8)
+```
+
+
+```python
+# Define train and test sets according to the index found above
+train = ts_weekly[:end_of_train_index]
+test = ts_weekly[end_of_train_index:]
+```
+
 We will now set aside our test set, and build our model on the train.
+
+<a id='random_walk'></a>
 
 # Random Walk
 
@@ -36,40 +62,75 @@ $$\Large Y_t - Y_{t-1}=  \epsilon_t$$
 
 This makes sense, given one way we described making our series stationary was by applying a difference of a lag of 1.
 
-Let's bring back our Chicago gun crime data and make a simple random walk model.
+Let's make a simple random walk model for our Gun Crime dataset.
 
-For a baseline to compare our later models, lets calculate our **RMSE** for the random walk
+WE can perform this with the shift operator, which shifts our time series according to periods argument.
 
-Now, lets plot the residuals.
+We will use a random walk as our **FSM**.  
+
+That being the case, let's use a familiar metric, RMSE, to assess its strength.
+
+
+## Individual Exercise (3 min): Calculate RMSE
+
+
+```python
+from sklearn.metrics import mean_squared_error
+mse = mean_squared_error(train[1:], random_walk.dropna())
+rmse = np.sqrt(mse)
+print(rmse)
+```
+
+
+```python
+# By hand
+residuals = random_walk - train
+mse_rw = (residuals.dropna()**2).sum()/len(residuals-1)
+np.sqrt(mse_rw.sum())
+```
+
+<a id='arma_models'></a>
+
+# Improvement on FSM: Autoregressive and Moving Average Models
+
+Lets plot the residuals from the random walk model.
 
 If we look at the rolling standard deviation of our errors, we can see that the performance of our model varies at different points in time.
 
 That is a result of the trends in our data.
 
-In the previous notebook, we were able to make our series **stationary** by differencing our data. 
+In the previous notebook, we ended by indicating most Time Series models expect to be fed **stationary** data.  Were able to make our series stationary by differencing our data.
 
 Let's repeat that process here. 
 
 In order to make our life easier, we will use statsmodels to difference our data via the **ARIMA** class. 
 
-We will break down what ARIMA is shortly, but for now, we will focus on the I, which stands for **integrated**.  A time series which has been be differenced to become stationary is saidf to have been integrated[1](https://people.duke.edu/~rnau/411arim.htm). 
+We will break down what ARIMA is shortly, but for now, we will focus on the I, which stands for **integrated**.  A time series which has been be differenced to become stationary is said to have been integrated[1](https://people.duke.edu/~rnau/411arim.htm). 
 
 There is an order parameter in ARIMA with three slots: (p, d, q).  d represents our order of differencing, so putting a one there in our model will apply a first order difference.
 
 
 
 
+
+```python
+# create an ARIMA object, and pass the training set and order (0,1,0) as arguments
+rw = ARIMA(train, (0,1,0)).fit()
+# Add typ='levels' argument to predict on original scale
+rw.predict(typ='levels')
+```
+
 We can see that the differenced predictions (d=1) are just a random walk
 
-Visually, our differenced data looks more like white noise:
-
-By removing the trend from our data, we assume that our data's mean and variance are constant throughout.  But it is not just white noise.  If it were, our models could do no better than random predictions around the mean.  
+By removing the trend from our data, we assume that our data passes a significance test that the mean and variance are constant throughout.  But it is not just white noise.  If it were, our models could do no better than random predictions around the mean.  
 
 Our task now is to find **more patterns** in the series.  
 
 We will focus on the data points near to the point in question.  We can attempt to find patterns to how much influence previous points in the sequence have. 
 
 If that made you think of regression, great! What we will be doing is assigning weights, like our betas, to previous points.
+
+<a id='ar_model'></a>
 
 # The Autoregressive Model (AR)
 
@@ -79,7 +140,35 @@ Our next attempt at a model is the autoregressive model, which is a timeseries r
 
 The above formula is a first order autoregressive model (AR1), which finds the best fit weight $\phi$ which, multiplied by the point previous to a point in question, yields the best fit model. 
 
+
+```python
+
+# A linear regression model with fed with a shifted timeseries 
+# yields coefficients which approximate ARIMA
+
+from sklearn.linear_model import LinearRegression
+
+lr_ar_1 = LinearRegression()
+lr_ar_1.fit(pd.DataFrame(train.diff().dropna().shift(1).dropna()), np.array(train[1:].diff().dropna()))
+lr_ar_1.coef_
+lr_ar_1.intercept_
+lr_ar_1.predict(pd.DataFrame(train[1:].diff().dropna())) + train[2:]
+
+
+
+```
+
 In our ARIMA model, the **p** variable of the order (p,d,q) represents the AR term.  For a first order AR model, we put a 1 there.
+
+
+```python
+# fit an 1st order differenced AR 1 model with the ARIMA class, 
+# Pass train and order (1,1,0)
+ar_1 = ARIMA(train, (1,1,0)).fit()
+
+# We put a typ='levels' to convert our predictions to remove the differencing performed.
+ar_1.predict(typ='levels')
+```
 
 The ARIMA class comes with a nice summary table.  
 
@@ -91,13 +180,18 @@ Let's compare the first order autoregressive model to our Random Walk.
 
 Our AIC for the AR(1) model is lower than the random walk, indicating improvement.  
 
-Before abandoning it for AIC, let's just make sure the RMSE is lower as well.
+Let's stick with the RMSE, so we can compare to the hold out data at the end.
 
 Checks out. RMSE is lower as well.
 
 Autoregression, as we said before, is a regression of a time series on lagged values of itself.  
 
 From the summary, we see the coefficient of the 1st lag:
+
+
+```python
+ar_1.arparams
+```
 
 We come close to reproducing this coefficients with linear regression, with slight differences due to how statsmodels performs the regression. 
 
@@ -106,7 +200,17 @@ $$\large y_{t} = \phi_{0} + \phi_{1}y_{t-1} + \phi_{2}y_{t-2}+ \varepsilon_{t}$$
 
 We refer to the order of our AR model by the number of lags back we go.  The above formula refers to an **AR(2)** model.  We put a 2 in the p position of the ARIMA class order
 
+
+```python
+# Fit a 1st order difference 2nd order ARIMA model 
+ar_2 = ARIMA(train, (2,1,0)).fit()
+
+y_hat_ar_2 = ar_2.predict(typ='levels')
+```
+
 Our AIC improves with more lagged terms.
+
+<a id='ma_model'></a>
 
 # Moving Average Model (MA)
 
@@ -119,9 +223,34 @@ The moving average model is a pretty cool idea. We make a prediction, see how fa
 In our ARIMA model, the q term of our order (p,d,q) refers to the MA component. To use one lagged error, we put 1 in the q position.
 
 
-Let's see if we can reproduce the predictions above
+
+```python
+# Reproduce the prediction for 2014-06-01
+
+#prior true value
+print(train['2014-05-25'])
+prior_train = train['2014-05-25']
+# prior prediction
+print(y_hat['2014-05-25'])
+prior_y_hat = y_hat['2014-05-25']
+
+(prior_train - prior_y_hat) * ma_1.params['ma.L1.y'] + ma_1.params['const']
+
+```
+
+We can replacate all of the y_hats with the code below:
 
 Let's look at the 1st order MA model with a 1st order difference
+
+
+```python
+ma_1 = ARIMA(train, (0,1,1)).fit()
+rmse_ma1 = np.sqrt(mean_squared_error(train[1:], ma_1.predict(typ='levels')))
+print(rmse_rw)
+print(rmse_ar1)
+print(ar_2_rmse)
+print(rmse_ma1)
+```
 
 It performs better than a 1st order AR, but worse than a 2nd order
 
@@ -140,7 +269,25 @@ for example, an ARMA(2,1) model is given by:
  $$\large Y_t = \mu + \phi_1 Y_{t-1}+\phi_2 Y_{t-2}+ \theta \epsilon_{t-1}+\epsilon_t$$
 
 
-Best performance so far.
+# Pair (5 minutes)
+
+
+```python
+arma_22 = ARIMA(train, (2,1,2)).fit()
+rmse_22 = np.sqrt(mean_squared_error(train[1:], arma_21.predict(typ='levels')))
+```
+
+
+```python
+print(rmse_rw)
+print(rmse_ar1)
+print(ar_2_rmse)
+print(rmse_ma1)
+print(rmse_ma2)
+print(rmse_22)
+```
+
+<a id='acf_pacf'></a>
 
 # ACF and PACF
 
@@ -150,7 +297,11 @@ We have two tools to help guide us in these decisions: the autocorrelation and p
 
 ## PACF
 
-In general, a partial correlation is a **conditional correlation**. It is the  amount of correlation between a variable and a lag of itself that is not explained by correlations at all lower-order-lags. If $Y_t$ is correlated with $Y_{t-1}$, and $Y_{t-1}$ is equally correlated with $Y_{t-2}$, then we should also expect to find correlation between $Y_t$ and $Y_{t-2}$. Thus, the correlation at lag 1 "propagates" to lag 2 and presumably to higher-order lags. The partial autocorrelation at lag 2 is therefore the difference between the actual correlation at lag 2 and the expected correlation due to the propagation of correlation at lag 1.
+In general, a partial correlation is a **conditional correlation**. It is the  amount of correlation between a variable and a lag of itself that is not explained by correlations at all lower-order-lags.  
+
+If $Y_t$ is correlated with $Y_{t-1}$, and $Y_{t-1}$ is equally correlated with $Y_{t-2}$, then we should also expect to find correlation between $Y_t$ and $Y_{t-2}$.   
+
+Thus, the correlation at lag 1 "propagates" to lag 2 and presumably to higher-order lags. The partial autocorrelation at lag 2 is therefore the difference between the actual correlation at lag 2 and the expected correlation due to the propagation of correlation at lag 1.
 
 
 
@@ -173,7 +324,7 @@ We can calculate a specific covariance ($\gamma_k$) with:
 
 ${\displaystyle \gamma_k = \frac 1 n \sum\limits_{t=1}^{n-k} (y_t - \bar{y_t})(y_{t+k}-\bar{y_{t+k}})}$
 
-We then comput the Pearson correlation:
+We then compute the Pearson correlation:
 
 ### $\rho = \frac {\operatorname E[(y_1−\mu_1)(y_2−\mu_2)]} {\sigma_{1}\sigma_{2}} = \frac {\operatorname {Cov} (y_1,y_2)} {\sigma_{1}\sigma_{2}}$,
 
@@ -207,6 +358,8 @@ The plots above suggest that we should try a 1st order differenced MA(1) or MA(2
 This aligns with our AIC scores from above.
 
 The ACF can be used to identify the possible structure of time series data. That can be tricky going forward as there often isn’t a single clear-cut interpretation of a sample autocorrelation function.
+
+<a id='auto_arima'></a>
 
 # auto_arima
 
@@ -253,3 +406,7 @@ Let's try the third from the bottom, ARIMA(1, 1, 1)x(0, 1, 1, 52)12 - AIC:973.55
 Lastly, let's predict into the future.
 
 To do so, we refit to our entire training set.
+
+<a id='timeseriessplit'></a>
+
+# More Thorough Cross Validation
