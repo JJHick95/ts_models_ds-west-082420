@@ -9,11 +9,11 @@
     - [Moving Average Model](#ma_model)
     - [ACF and PACF](#acf_pacf)
 - [auto_arima](#auto_arima)
-- [TimeSeriesSplit](#timeseriessplit)
+
 
 If we think back to our lecture on the bias-variance tradeoff, a perfect model is not possible.  There will always noise (inexplicable error).
 
-If we were to remove all of the patterns from our timeseries, we would be left with white noise, which is written mathematically as:
+If we were to remove all of the patterns from our time series, we would be left with white noise, which is written mathematically as:
 
 $$\Large Y_t =  \epsilon_t$$
 
@@ -66,6 +66,21 @@ Let's make a simple random walk model for our Gun Crime dataset.
 
 WE can perform this with the shift operator, which shifts our time series according to periods argument.
 
+
+```python
+# The prediction for the next day is the original series shifted to the future by one day.
+# pass period=1 argument to the shift method called at the end of train.
+random_walk = train.shift(1)
+
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots()
+
+train[0:30].plot(ax=ax, c='r', label='original')
+random_walk[0:30].plot(ax=ax, c='b', label='shifted')
+ax.set_title('Random Walk')
+ax.legend();
+```
+
 We will use a random walk as our **FSM**.  
 
 That being the case, let's use a familiar metric, RMSE, to assess its strength.
@@ -95,6 +110,116 @@ np.sqrt(mse_rw.sum())
 
 Lets plot the residuals from the random walk model.
 
+
+```python
+residuals = random_walk - train
+
+plt.plot(residuals.index, residuals)
+plt.plot(residuals.index, residuals.rolling(30).std())
+```
+
+
+    ---------------------------------------------------------------------------
+
+    TypeError                                 Traceback (most recent call last)
+
+    ~/anaconda3/lib/python3.7/site-packages/pandas/core/ops/array_ops.py in na_arithmetic_op(left, right, op, str_rep)
+        148     try:
+    --> 149         result = expressions.evaluate(op, str_rep, left, right)
+        150     except TypeError:
+
+
+    ~/anaconda3/lib/python3.7/site-packages/pandas/core/computation/expressions.py in evaluate(op, op_str, a, b, use_numexpr)
+        207     if use_numexpr:
+    --> 208         return _evaluate(op, op_str, a, b)
+        209     return _evaluate_standard(op, op_str, a, b)
+
+
+    ~/anaconda3/lib/python3.7/site-packages/pandas/core/computation/expressions.py in _evaluate_numexpr(op, op_str, a, b)
+        120     if result is None:
+    --> 121         result = _evaluate_standard(op, op_str, a, b)
+        122 
+
+
+    ~/anaconda3/lib/python3.7/site-packages/pandas/core/computation/expressions.py in _evaluate_standard(op, op_str, a, b)
+         69     with np.errstate(all="ignore"):
+    ---> 70         return op(a, b)
+         71 
+
+
+    ~/anaconda3/lib/python3.7/site-packages/pandas/core/ops/roperator.py in rsub(left, right)
+         12 def rsub(left, right):
+    ---> 13     return right - left
+         14 
+
+
+    TypeError: unsupported operand type(s) for -: 'NoneType' and 'float'
+
+    
+    During handling of the above exception, another exception occurred:
+
+
+    TypeError                                 Traceback (most recent call last)
+
+    <ipython-input-105-7cd9e2d2a6be> in <module>
+          1 #__SOLUTION__
+    ----> 2 residuals = random_walk - train
+          3 
+          4 plt.plot(residuals.index, residuals)
+          5 plt.plot(residuals.index, residuals.rolling(30).std())
+
+
+    ~/anaconda3/lib/python3.7/site-packages/pandas/core/ops/common.py in new_method(self, other)
+         62         other = item_from_zerodim(other)
+         63 
+    ---> 64         return method(self, other)
+         65 
+         66     return new_method
+
+
+    ~/anaconda3/lib/python3.7/site-packages/pandas/core/ops/__init__.py in wrapper(left, right)
+        501         lvalues = extract_array(left, extract_numpy=True)
+        502         rvalues = extract_array(right, extract_numpy=True)
+    --> 503         result = arithmetic_op(lvalues, rvalues, op, str_rep)
+        504 
+        505         return _construct_result(left, result, index=left.index, name=res_name)
+
+
+    ~/anaconda3/lib/python3.7/site-packages/pandas/core/ops/array_ops.py in arithmetic_op(left, right, op, str_rep)
+        195     else:
+        196         with np.errstate(all="ignore"):
+    --> 197             res_values = na_arithmetic_op(lvalues, rvalues, op, str_rep)
+        198 
+        199     return res_values
+
+
+    ~/anaconda3/lib/python3.7/site-packages/pandas/core/ops/array_ops.py in na_arithmetic_op(left, right, op, str_rep)
+        149         result = expressions.evaluate(op, str_rep, left, right)
+        150     except TypeError:
+    --> 151         result = masked_arith_op(left, right, op)
+        152 
+        153     return missing.dispatch_fill_zeros(op, left, right, result)
+
+
+    ~/anaconda3/lib/python3.7/site-packages/pandas/core/ops/array_ops.py in masked_arith_op(x, y, op)
+        110         if mask.any():
+        111             with np.errstate(all="ignore"):
+    --> 112                 result[mask] = op(xrav[mask], y)
+        113 
+        114     result, _ = maybe_upcast_putmask(result, ~mask, np.nan)
+
+
+    ~/anaconda3/lib/python3.7/site-packages/pandas/core/ops/roperator.py in rsub(left, right)
+         11 
+         12 def rsub(left, right):
+    ---> 13     return right - left
+         14 
+         15 
+
+
+    TypeError: unsupported operand type(s) for -: 'NoneType' and 'float'
+
+
 If we look at the rolling standard deviation of our errors, we can see that the performance of our model varies at different points in time.
 
 That is a result of the trends in our data.
@@ -119,6 +244,24 @@ rw = ARIMA(train, (0,1,0)).fit()
 # Add typ='levels' argument to predict on original scale
 rw.predict(typ='levels')
 ```
+
+
+
+
+    2014-01-12    31.187619
+    2014-01-19    18.987619
+    2014-01-26    24.559048
+    2014-02-02    24.559048
+    2014-02-09    22.273333
+                    ...    
+    2019-02-10    24.559048
+    2019-02-17    27.844762
+    2019-02-24    30.701905
+    2019-03-03    30.844762
+    2019-03-10    28.701905
+    Freq: W-SUN, Length: 270, dtype: float64
+
+
 
 We can see that the differenced predictions (d=1) are just a random walk
 
@@ -158,6 +301,24 @@ lr_ar_1.predict(pd.DataFrame(train[1:].diff().dropna())) + train[2:]
 
 ```
 
+
+
+
+    2014-01-19    23.011317
+    2014-01-26    24.601717
+    2014-02-02    22.968474
+    2014-02-09    18.641207
+    2014-02-16    16.458602
+                    ...    
+    2019-02-10    26.949503
+    2019-02-17    29.928984
+    2019-02-24    30.846652
+    2019-03-03    29.356266
+    2019-03-10    28.132108
+    Freq: W-SUN, Length: 269, dtype: float64
+
+
+
 In our ARIMA model, the **p** variable of the order (p,d,q) represents the AR term.  For a first order AR model, we put a 1 there.
 
 
@@ -169,6 +330,24 @@ ar_1 = ARIMA(train, (1,1,0)).fit()
 # We put a typ='levels' to convert our predictions to remove the differencing performed.
 ar_1.predict(typ='levels')
 ```
+
+
+
+
+    2014-01-12    31.198536
+    2014-01-19    22.556496
+    2014-01-26    22.944514
+    2014-02-02    24.569538
+    2014-02-09    22.950500
+                    ...    
+    2019-02-10    26.027893
+    2019-02-17    26.896905
+    2019-02-24    29.879050
+    2019-03-03    30.813585
+    2019-03-10    29.337404
+    Freq: W-SUN, Length: 270, dtype: float64
+
+
 
 The ARIMA class comes with a nice summary table.  
 
@@ -193,6 +372,13 @@ From the summary, we see the coefficient of the 1st lag:
 ar_1.arparams
 ```
 
+
+
+
+    array([-0.29167099])
+
+
+
 We come close to reproducing this coefficients with linear regression, with slight differences due to how statsmodels performs the regression. 
 
 We can also factor in more than just the most recent point.
@@ -207,8 +393,6 @@ ar_2 = ARIMA(train, (2,1,0)).fit()
 
 y_hat_ar_2 = ar_2.predict(typ='levels')
 ```
-
-Our AIC improves with more lagged terms.
 
 <a id='ma_model'></a>
 
@@ -238,6 +422,17 @@ prior_y_hat = y_hat['2014-05-25']
 
 ```
 
+    31.142857142857142
+    33.38774771043386
+
+
+
+
+
+    33.56600793267698
+
+
+
 We can replacate all of the y_hats with the code below:
 
 Let's look at the 1st order MA model with a 1st order difference
@@ -248,9 +443,15 @@ ma_1 = ARIMA(train, (0,1,1)).fit()
 rmse_ma1 = np.sqrt(mean_squared_error(train[1:], ma_1.predict(typ='levels')))
 print(rmse_rw)
 print(rmse_ar1)
-print(ar_2_rmse)
+print(rmse_ar2)
 print(rmse_ma1)
 ```
+
+    4.697542272439977
+    4.502200686486479
+    4.2914159019782545
+    4.3253589327542565
+
 
 It performs better than a 1st order AR, but worse than a 2nd order
 
@@ -274,18 +475,26 @@ for example, an ARMA(2,1) model is given by:
 
 ```python
 arma_22 = ARIMA(train, (2,1,2)).fit()
-rmse_22 = np.sqrt(mean_squared_error(train[1:], arma_21.predict(typ='levels')))
+rmse_22 = np.sqrt(mean_squared_error(train[1:], arma_22.predict(typ='levels')))
 ```
 
 
 ```python
 print(rmse_rw)
 print(rmse_ar1)
-print(ar_2_rmse)
+print(rmse_ar2)
 print(rmse_ma1)
 print(rmse_ma2)
 print(rmse_22)
 ```
+
+    4.697542272439977
+    4.502200686486479
+    4.2914159019782545
+    4.3253589327542565
+    4.261197978485248
+    4.225492682757378
+
 
 <a id='acf_pacf'></a>
 
@@ -293,7 +502,7 @@ print(rmse_22)
 
 We have been able to reduce our AIC by chance, adding fairly random p,d,q terms.
 
-We have two tools to help guide us in these decisions: the autocorrelation and partial autocorrelation functions.
+We have two tools to help guide us in these decisions: the **autocorrelation** and **partial autocorrelation** functions.
 
 ## PACF
 
@@ -305,8 +514,6 @@ Thus, the correlation at lag 1 "propagates" to lag 2 and presumably to higher-or
 
 
 
-The shaded area of the graph is the convidence interval.  When the correlation drops into the shaded area, that means there is no longer statistically significant correlation between lags.
-
 For an AR process, we run a linear regression on lags according to the order of the AR process. The coefficients calculated factor in the influence of the other variables.   
 
 Since the PACF shows the direct effect of previous lags, it helps us choose AR terms.  If there is a significant positive value at a lag, consider adding an AR term according to the number that you see.
@@ -316,19 +523,21 @@ Some rules of thumb:
     - A sharp drop after lag "k" suggests an AR-K model.
     - A gradual decline suggests an MA.
 
+![ar1_pacf](img/ar1_pacf.png)
+
 ## ACF
 
-The autocorrelation plot of our time series is simply a version of the correlation plots we used in linear regression.  Our features this time are prior points in the time series, or the **lags**. 
+The autocorrelation plot of our time series is simply a version of the correlation plots we used in linear regression.  In place of the independent features we include the lags. 
 
-We can calculate a specific covariance ($\gamma_k$) with:
 
-${\displaystyle \gamma_k = \frac 1 n \sum\limits_{t=1}^{n-k} (y_t - \bar{y_t})(y_{t+k}-\bar{y_{t+k}})}$
 
-We then compute the Pearson correlation:
+Unlike the PACF, shows both the direct and indirect correlation between lags. In other words, in the above plot, there is significant correlation between the day of interest 12 lags back.  But this assumes that lag 1 is correlated to lag 2, lag 2 to 3, and so forth.  
 
-### $\rho = \frac {\operatorname E[(y_1−\mu_1)(y_2−\mu_2)]} {\sigma_{1}\sigma_{2}} = \frac {\operatorname {Cov} (y_1,y_2)} {\sigma_{1}\sigma_{2}}$,
+The error terms in a Moving Average process are built progressively by adjusting the error of the previous moment in time.  Each error term therein includes the indirect effect of the error term before it. Because of this, we can choose the MA term based on how many significant lags appear in the ACF.
 
-${\displaystyle \rho_k = \frac {\sum\limits_{t=1}^{n-k} (y_t - \bar{y})(y_{t+k}-\bar{y})} {\sum\limits_{t=1}^{n} (y_t - \bar{y})^2}}$
+![acf_ma1](img/ma1_acf.png)
+
+Let's bring in the pacf and acf from statsmodels.
 
 The above autocorrelation shows that there is correlation between lags up to about 12 weeks back.  
 
@@ -336,28 +545,19 @@ When Looking at the ACF graph for the original data, we see a strong persistent 
 
 This makes sense, since we are trying to capture the effect of recent lags in our ARMA models, and with high correlation between distant lags, our models will not come close to the true process.
 
-Generally, we use an ACF to predict MA terms.
-Moving Average models are using the error terms of the predicitons to calculate the next value.  This means that the algorithm does not incorporate the direct effect of the previous value. It models what are sometimes called **impulses** or **shocks** whose effect takes into accounts for the propogation of correlation from one lag to the other. 
-
+The shaded area of the graph is the convidence interval.  When the correlation drops into the shaded area, that means there is no longer statistically significant correlation between lags.
 
 This autocorrelation plot can now be used to get an idea of a potential MA term.  Our differenced series shows negative significant correlation at lag of 1 suggests adding 1 MA term.  There is also a statistically significant 2nd, term, so adding another MA is another possibility.
 
 
 > If the ACF of the differenced series displays a sharp cutoff and/or the lag-1 autocorrelation is negative--i.e., if the series appears slightly "overdifferenced"--then consider adding an MA term to the model. The lag at which the ACF cuts off is the indicated number of MA terms. [Duke](https://people.duke.edu/~rnau/411arim3.htm#signatures)
 
-Rule of thumb:
-    
-  - If the autocorrelation shows negative correlation at the first lag, try adding MA terms.
-    
-    
-
-![alt text](./img/armaguidelines.png)
-
 The plots above suggest that we should try a 1st order differenced MA(1) or MA(2) model on our weekly gun offense data.
 
-This aligns with our AIC scores from above.
 
 The ACF can be used to identify the possible structure of time series data. That can be tricky going forward as there often isn’t a single clear-cut interpretation of a sample autocorrelation function.
+
+Luckily, we have auto_arima
 
 <a id='auto_arima'></a>
 
@@ -406,7 +606,3 @@ Let's try the third from the bottom, ARIMA(1, 1, 1)x(0, 1, 1, 52)12 - AIC:973.55
 Lastly, let's predict into the future.
 
 To do so, we refit to our entire training set.
-
-<a id='timeseriessplit'></a>
-
-# More Thorough Cross Validation
