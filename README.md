@@ -11,7 +11,7 @@
 - [auto_arima](#auto_arima)
 
 
-If we think back to our lecture on the bias-variance tradeoff, a perfect model is not possible.  There will always noise (inexplicable error).
+If we think back to our lecture on the bias-variance tradeoff, a perfect model is not possible.  There will always be noise (inexplicable error).
 
 If we were to remove all of the patterns from our time series, we would be left with white noise, which is written mathematically as:
 
@@ -70,7 +70,7 @@ WE can perform this with the shift operator, which shifts our time series accord
 ```python
 # The prediction for the next day is the original series shifted to the future by one day.
 # pass period=1 argument to the shift method called at the end of train.
-random_walk = train.shift(1)
+random_walk = train.shift(-1)
 
 import matplotlib.pyplot as plt
 fig, ax = plt.subplots()
@@ -95,6 +95,22 @@ mse = mean_squared_error(train[1:], random_walk.dropna())
 rmse = np.sqrt(mse)
 print(rmse)
 ```
+
+
+    ---------------------------------------------------------------------------
+
+    NameError                                 Traceback (most recent call last)
+
+    <ipython-input-6-ea3fc3c5ed2b> in <module>
+          1 #__SOLUTION__
+          2 from sklearn.metrics import mean_squared_error
+    ----> 3 mse = mean_squared_error(train[1:], random_walk.dropna())
+          4 rmse = np.sqrt(mse)
+          5 print(rmse)
+
+
+    NameError: name 'train' is not defined
+
 
 
 ```python
