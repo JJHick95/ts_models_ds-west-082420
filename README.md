@@ -11,7 +11,7 @@
 - [auto_arima](#auto_arima)
 
 
-If we think back to our lecture on the bias-variance tradeoff, a perfect model is not possible.  There will always noise (inexplicable error).
+If we think back to our lecture on the bias-variance tradeoff, a perfect model is not possible.  There will always be noise (inexplicable error).
 
 If we were to remove all of the patterns from our time series, we would be left with white noise, which is written mathematically as:
 
