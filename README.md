@@ -11,6 +11,11 @@
 - [auto_arima](#auto_arima)
 
 
+
+```python
+"1 - SSE/SST"
+```
+
 If we think back to our lecture on the bias-variance tradeoff, a perfect model is not possible.  There will always be noise (inexplicable error).
 
 If we were to remove all of the patterns from our time series, we would be left with white noise, which is written mathematically as:
@@ -70,7 +75,7 @@ WE can perform this with the shift operator, which shifts our time series accord
 ```python
 # The prediction for the next day is the original series shifted to the future by one day.
 # pass period=1 argument to the shift method called at the end of train.
-random_walk = train.shift(-1)
+random_walk = train.shift(1)
 
 import matplotlib.pyplot as plt
 fig, ax = plt.subplots()
@@ -97,22 +102,6 @@ print(rmse)
 ```
 
 
-    ---------------------------------------------------------------------------
-
-    NameError                                 Traceback (most recent call last)
-
-    <ipython-input-6-ea3fc3c5ed2b> in <module>
-          1 #__SOLUTION__
-          2 from sklearn.metrics import mean_squared_error
-    ----> 3 mse = mean_squared_error(train[1:], random_walk.dropna())
-          4 rmse = np.sqrt(mse)
-          5 print(rmse)
-
-
-    NameError: name 'train' is not defined
-
-
-
 ```python
 # By hand
 residuals = random_walk - train
@@ -134,108 +123,6 @@ plt.plot(residuals.index, residuals)
 plt.plot(residuals.index, residuals.rolling(30).std())
 ```
 
-
-    ---------------------------------------------------------------------------
-
-    TypeError                                 Traceback (most recent call last)
-
-    ~/anaconda3/lib/python3.7/site-packages/pandas/core/ops/array_ops.py in na_arithmetic_op(left, right, op, str_rep)
-        148     try:
-    --> 149         result = expressions.evaluate(op, str_rep, left, right)
-        150     except TypeError:
-
-
-    ~/anaconda3/lib/python3.7/site-packages/pandas/core/computation/expressions.py in evaluate(op, op_str, a, b, use_numexpr)
-        207     if use_numexpr:
-    --> 208         return _evaluate(op, op_str, a, b)
-        209     return _evaluate_standard(op, op_str, a, b)
-
-
-    ~/anaconda3/lib/python3.7/site-packages/pandas/core/computation/expressions.py in _evaluate_numexpr(op, op_str, a, b)
-        120     if result is None:
-    --> 121         result = _evaluate_standard(op, op_str, a, b)
-        122 
-
-
-    ~/anaconda3/lib/python3.7/site-packages/pandas/core/computation/expressions.py in _evaluate_standard(op, op_str, a, b)
-         69     with np.errstate(all="ignore"):
-    ---> 70         return op(a, b)
-         71 
-
-
-    ~/anaconda3/lib/python3.7/site-packages/pandas/core/ops/roperator.py in rsub(left, right)
-         12 def rsub(left, right):
-    ---> 13     return right - left
-         14 
-
-
-    TypeError: unsupported operand type(s) for -: 'NoneType' and 'float'
-
-    
-    During handling of the above exception, another exception occurred:
-
-
-    TypeError                                 Traceback (most recent call last)
-
-    <ipython-input-105-7cd9e2d2a6be> in <module>
-          1 #__SOLUTION__
-    ----> 2 residuals = random_walk - train
-          3 
-          4 plt.plot(residuals.index, residuals)
-          5 plt.plot(residuals.index, residuals.rolling(30).std())
-
-
-    ~/anaconda3/lib/python3.7/site-packages/pandas/core/ops/common.py in new_method(self, other)
-         62         other = item_from_zerodim(other)
-         63 
-    ---> 64         return method(self, other)
-         65 
-         66     return new_method
-
-
-    ~/anaconda3/lib/python3.7/site-packages/pandas/core/ops/__init__.py in wrapper(left, right)
-        501         lvalues = extract_array(left, extract_numpy=True)
-        502         rvalues = extract_array(right, extract_numpy=True)
-    --> 503         result = arithmetic_op(lvalues, rvalues, op, str_rep)
-        504 
-        505         return _construct_result(left, result, index=left.index, name=res_name)
-
-
-    ~/anaconda3/lib/python3.7/site-packages/pandas/core/ops/array_ops.py in arithmetic_op(left, right, op, str_rep)
-        195     else:
-        196         with np.errstate(all="ignore"):
-    --> 197             res_values = na_arithmetic_op(lvalues, rvalues, op, str_rep)
-        198 
-        199     return res_values
-
-
-    ~/anaconda3/lib/python3.7/site-packages/pandas/core/ops/array_ops.py in na_arithmetic_op(left, right, op, str_rep)
-        149         result = expressions.evaluate(op, str_rep, left, right)
-        150     except TypeError:
-    --> 151         result = masked_arith_op(left, right, op)
-        152 
-        153     return missing.dispatch_fill_zeros(op, left, right, result)
-
-
-    ~/anaconda3/lib/python3.7/site-packages/pandas/core/ops/array_ops.py in masked_arith_op(x, y, op)
-        110         if mask.any():
-        111             with np.errstate(all="ignore"):
-    --> 112                 result[mask] = op(xrav[mask], y)
-        113 
-        114     result, _ = maybe_upcast_putmask(result, ~mask, np.nan)
-
-
-    ~/anaconda3/lib/python3.7/site-packages/pandas/core/ops/roperator.py in rsub(left, right)
-         11 
-         12 def rsub(left, right):
-    ---> 13     return right - left
-         14 
-         15 
-
-
-    TypeError: unsupported operand type(s) for -: 'NoneType' and 'float'
-
-
 If we look at the rolling standard deviation of our errors, we can see that the performance of our model varies at different points in time.
 
 That is a result of the trends in our data.
@@ -246,7 +133,7 @@ Let's repeat that process here.
 
 In order to make our life easier, we will use statsmodels to difference our data via the **ARIMA** class. 
 
-We will break down what ARIMA is shortly, but for now, we will focus on the I, which stands for **integrated**.  A time series which has been be differenced to become stationary is said to have been integrated[1](https://people.duke.edu/~rnau/411arim.htm). 
+We will break down what ARIMA is shortly, but for now, we will focus on the I, which stands for **integrated**.  A time series which has been be differenced to become stationary is said to have been integrated [1](https://people.duke.edu/~rnau/411arim.htm). 
 
 There is an order parameter in ARIMA with three slots: (p, d, q).  d represents our order of differencing, so putting a one there in our model will apply a first order difference.
 
@@ -260,24 +147,6 @@ rw = ARIMA(train, (0,1,0)).fit()
 # Add typ='levels' argument to predict on original scale
 rw.predict(typ='levels')
 ```
-
-
-
-
-    2014-01-12    31.187619
-    2014-01-19    18.987619
-    2014-01-26    24.559048
-    2014-02-02    24.559048
-    2014-02-09    22.273333
-                    ...    
-    2019-02-10    24.559048
-    2019-02-17    27.844762
-    2019-02-24    30.701905
-    2019-03-03    30.844762
-    2019-03-10    28.701905
-    Freq: W-SUN, Length: 270, dtype: float64
-
-
 
 We can see that the differenced predictions (d=1) are just a random walk
 
@@ -317,24 +186,6 @@ lr_ar_1.predict(pd.DataFrame(train[1:].diff().dropna())) + train[2:]
 
 ```
 
-
-
-
-    2014-01-19    23.011317
-    2014-01-26    24.601717
-    2014-02-02    22.968474
-    2014-02-09    18.641207
-    2014-02-16    16.458602
-                    ...    
-    2019-02-10    26.949503
-    2019-02-17    29.928984
-    2019-02-24    30.846652
-    2019-03-03    29.356266
-    2019-03-10    28.132108
-    Freq: W-SUN, Length: 269, dtype: float64
-
-
-
 In our ARIMA model, the **p** variable of the order (p,d,q) represents the AR term.  For a first order AR model, we put a 1 there.
 
 
@@ -346,24 +197,6 @@ ar_1 = ARIMA(train, (1,1,0)).fit()
 # We put a typ='levels' to convert our predictions to remove the differencing performed.
 ar_1.predict(typ='levels')
 ```
-
-
-
-
-    2014-01-12    31.198536
-    2014-01-19    22.556496
-    2014-01-26    22.944514
-    2014-02-02    24.569538
-    2014-02-09    22.950500
-                    ...    
-    2019-02-10    26.027893
-    2019-02-17    26.896905
-    2019-02-24    29.879050
-    2019-03-03    30.813585
-    2019-03-10    29.337404
-    Freq: W-SUN, Length: 270, dtype: float64
-
-
 
 The ARIMA class comes with a nice summary table.  
 
@@ -387,13 +220,6 @@ From the summary, we see the coefficient of the 1st lag:
 ```python
 ar_1.arparams
 ```
-
-
-
-
-    array([-0.29167099])
-
-
 
 We come close to reproducing this coefficients with linear regression, with slight differences due to how statsmodels performs the regression. 
 
@@ -438,17 +264,6 @@ prior_y_hat = y_hat['2014-05-25']
 
 ```
 
-    31.142857142857142
-    33.38774771043386
-
-
-
-
-
-    33.56600793267698
-
-
-
 We can replacate all of the y_hats with the code below:
 
 Let's look at the 1st order MA model with a 1st order difference
@@ -462,12 +277,6 @@ print(rmse_ar1)
 print(rmse_ar2)
 print(rmse_ma1)
 ```
-
-    4.697542272439977
-    4.502200686486479
-    4.2914159019782545
-    4.3253589327542565
-
 
 It performs better than a 1st order AR, but worse than a 2nd order
 
@@ -504,14 +313,6 @@ print(rmse_ma2)
 print(rmse_22)
 ```
 
-    4.697542272439977
-    4.502200686486479
-    4.2914159019782545
-    4.3253589327542565
-    4.261197978485248
-    4.225492682757378
-
-
 <a id='acf_pacf'></a>
 
 # ACF and PACF
@@ -546,8 +347,6 @@ Some rules of thumb:
 The autocorrelation plot of our time series is simply a version of the correlation plots we used in linear regression.  In place of the independent features we include the lags. 
 
 
-
-Unlike the PACF, shows both the direct and indirect correlation between lags. In other words, in the above plot, there is significant correlation between the day of interest 12 lags back.  But this assumes that lag 1 is correlated to lag 2, lag 2 to 3, and so forth.  
 
 The error terms in a Moving Average process are built progressively by adjusting the error of the previous moment in time.  Each error term therein includes the indirect effect of the error term before it. Because of this, we can choose the MA term based on how many significant lags appear in the ACF.
 
